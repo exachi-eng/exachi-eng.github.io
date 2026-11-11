@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>星渡り HOSHIWATARI v1.0</title>
+<style>
+:root{
+  --bg:#f8f8fb;--panel:#ffffff;--line:#d9d9e0;--text:#1a1a1c;--sub:#5f5f6b;
+  --you:#2b2b33;--cpu:#b8481c;--cell0:#ffffff;--hole:#c9c9d2;--hl:#fff3d6;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#18181b;--panel:#222227;--line:#3a3a42;--text:#f2f2f5;--sub:#a8a8b3;
+  --you:#e8e8ee;--cpu:#ff8a57;--cell0:#2a2a30;--hole:#0f0f12;--hl:#3b3322;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:"Noto Sans JP","Yu Gothic","游ゴシック",YuGothic,"Hiragino Sans",sans-serif;line-height:1.6}
+.app{max-width:980px;margin:0 auto;padding:16px}
+header h1{margin:0;font-size:1.6rem;letter-spacing:.05em}
+header h1 span{font-size:.9rem;color:var(--sub);font-family:"Segoe UI",Arial,sans-serif;margin-left:.5em}
+.sub{margin:.2em 0 12px;color:var(--sub);font-size:.85rem}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px}
+.setup{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;margin-bottom:12px}
+.setup fieldset{border:none;margin:0;padding:0;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.setup legend{float:left;margin-right:6px;font-size:.85rem;color:var(--sub)}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{display:inline-block;padding:4px 12px;border:1px solid var(--line);border-radius:4px;cursor:pointer;font-size:.9rem}
+.seg input:checked+label{background:var(--text);color:var(--panel);border-color:var(--text)}
+.seg input:focus-visible+label{outline:2px solid var(--cpu);outline-offset:2px}
+button.main{padding:6px 20px;border:1px solid var(--text);background:var(--text);color:var(--panel);
+  border-radius:4px;font-size:.95rem;cursor:pointer;font-family:inherit}
+button.main:focus-visible{outline:2px solid var(--cpu);outline-offset:2px}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.kpi .card{padding:8px 12px}
+.kpi .lb{font-size:.75rem;color:var(--sub)}
+.kpi .v{font-size:1.6rem;font-weight:700;font-family:"Segoe UI",Arial,sans-serif;line-height:1.2}
+.kpi .you .v{color:var(--you)} .kpi .cpu .v{color:var(--cpu)}
+.kpi .v.small{font-size:1rem;padding-top:.35rem}
+.play{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px}
+@media (max-width:760px){.play{grid-template-columns:1fr}.kpi{grid-template-columns:repeat(2,1fr)}}
+.boardwrap{display:flex;flex-direction:column;align-items:center}
+.coords-top,.row-wrap{display:grid;grid-template-columns:20px repeat(6,1fr);width:min(100%,480px);gap:4px}
+.coords-top span,.rl{text-align:center;font-size:.75rem;color:var(--sub);align-self:center}
+.board{display:grid;grid-template-columns:20px repeat(6,1fr);gap:4px;width:min(100%,480px)}
+.cell{aspect-ratio:1;border:1px solid var(--line);border-radius:4px;background:var(--cell0);
+  display:flex;align-items:center;justify-content:center;position:relative;font-family:"Segoe UI",Arial,sans-serif;
+  font-size:clamp(.9rem,3.6vw,1.3rem);font-weight:600;color:var(--text);padding:0;cursor:default}
+.cell .star{font-size:.55em;color:var(--sub);margin-left:1px}
+.cell.v1{background:color-mix(in srgb,var(--cell0) 100%,var(--text) 0%)}
+.cell.v2{background:color-mix(in srgb,var(--cell0) 94%,var(--text) 6%)}
+.cell.v3{background:color-mix(in srgb,var(--cell0) 88%,var(--text) 12%)}
+.cell.v4{background:color-mix(in srgb,var(--cell0) 80%,var(--text) 20%)}
+.cell.v5{background:color-mix(in srgb,var(--cell0) 70%,var(--text) 30%)}
+.cell.hole{background:var(--hole);border-color:var(--hole)}
+.cell.legal{cursor:pointer;outline:2px dashed var(--you);outline-offset:-4px}
+.cell.legal:hover,.cell.legal:focus-visible{outline-style:solid;background:var(--hl)}
+.cell.lastto{box-shadow:inset 0 0 0 2px var(--cpu)}
+.cell .bonus{position:absolute;top:2px;right:3px;font-size:.55rem;font-weight:700;color:var(--cpu)}
+.piece{width:72%;height:72%;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:clamp(.55rem,2.2vw,.8rem);font-weight:700;letter-spacing:.03em}
+.piece.you{background:var(--you);color:var(--panel)}
+.piece.cpu{background:var(--cpu);color:#fff}
+.side{display:flex;flex-direction:column;gap:12px}
+.status{font-weight:700;min-height:3.2em}
+.status.win{color:var(--you)} .status.lose{color:var(--cpu)}
+.log{height:220px;overflow-y:auto;font-size:.82rem;margin:0;padding-left:1.4em}
+.log li{border-bottom:1px solid var(--line);padding:2px 0}
+.log .c{color:var(--cpu)}
+details summary{cursor:pointer;font-weight:700}
+details ol{padding-left:1.3em;margin:.5em 0 0;font-size:.85rem}
+h2{font-size:.9rem;margin:0 0 6px;color:var(--sub)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>星渡り<span>HOSHIWATARI</span></h1>
+    <p class="sub">二人零和有限確定完全情報ゲーム ／ CPU対戦 ／ 1局 約5分</p>
+  </header>
+
+  <section class="card setup" aria-label="対局設定">
+    <fieldset class="seg"><legend>難易度</legend>
+      <input type="radio" name="lv" id="lv-low" value="low"><label for="lv-low">低</label>
+      <input type="radio" name="lv" id="lv-mid" value="mid" checked><label for="lv-mid">中</label>
+      <input type="radio" name="lv" id="lv-high" value="high"><label for="lv-high">高</label>
+    </fieldset>
+    <fieldset class="seg"><legend>手番</legend>
+      <input type="radio" name="od" id="od-first" value="0" checked><label for="od-first">先手（A1）</label>
+      <input type="radio" name="od" id="od-second" value="1"><label for="od-second">後手（F6）</label>
+    </fieldset>
+    <button type="button" class="main" id="startBtn">対局開始</button>
+  </section>
+
+  <section class="kpi" aria-label="スコア">
+    <div class="card you"><div class="lb">あなた</div><div class="v" id="scYou">0</div></div>
+    <div class="card cpu"><div class="lb">CPU</div><div class="v" id="scCpu">0</div></div>
+    <div class="card"><div class="lb">残りマス</div><div class="v" id="remain">-</div></div>
+    <div class="card"><div class="lb">難易度</div><div class="v small" id="lvShow">-</div></div>
+  </section>
+
+  <main class="play">
+    <div class="card boardwrap">
+      <div class="coords-top"><span></span><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span></div>
+      <div class="board" id="board" role="grid" aria-label="盤面"></div>
+    </div>
+    <aside class="side">
+      <div class="card"><h2>状況</h2><div class="status" id="status" aria-live="polite">設定を選んで「対局開始」を押してください。</div></div>
+      <div class="card"><h2>棋譜</h2><ol class="log" id="log"></ol></div>
+      <div class="card">
+        <details open><summary>ルール</summary>
+          <ol>
+            <li>6×6の盤。各マスに星（1〜5点）。配置は毎局ランダムですが点対称なので公平です。</li>
+            <li>先手はA1、後手はF6から開始（開始マスは穴）。</li>
+            <li>手番では自分の駒を縦・横・斜めの8方向へ<b>1〜3マス直進</b>。穴と相手駒は越えられません。</li>
+            <li>着地したマスの星を獲得し、そのマスは穴になります。</li>
+            <li><b>影踏み</b>：着地マスが相手駒の上下左右に隣接していれば<b>+2点</b>（盤上の「+2」表示）。</li>
+            <li>動けない手番はパス。両者とも動けなくなったら終局し、合計点の多い方が勝ち（同点は引き分け）。</li>
+          </ol>
+        </details>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+(()=>{
+const N=6, SZ=36;
+const DIRS=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+const LVNAME={low:'低',mid:'中',high:'高'};
+const $=id=>document.getElementById(id);
+const S={vals:new Array(SZ).fill(0),pos:[0,35],score:[0,0],turn:0,human:0,level:'mid',over:true,busy:false,lastTo:-1,game:0};
+
+const xy=c=>[c%N,(c/N)|0];
+const cname=c=>{const[x,y]=xy(c);return 'ABCDEF'[x]+(y+1);};
+const orthAdj=(a,b)=>{const[ax,ay]=xy(a),[bx,by]=xy(b);return Math.abs(ax-bx)+Math.abs(ay-by)===1;};
+function gen(vals,pos,p){
+  const res=[];const[x0,y0]=xy(pos[p]);
+  for(const[dx,dy] of DIRS){
+    for(let k=1;k<=3;k++){
+      const x=x0+dx*k,y=y0+dy*k;
+      if(x<0||y<0||x>=N||y>=N)break;
+      const c=y*N+x;
+      if(vals[c]<=0)break; // 穴・駒（駒の位置は常に穴）
+      res.push(c);
+    }
+  }
+  return res;
+}
+const gain=(vals,pos,p,c)=>vals[c]+(orthAdj(c,pos[1-p])?2:0);
+
+/* ---------- 盤面生成（点対称） ---------- */
+function newBoard(){
+  const w=[1,1,1,1,1,2,2,2,2,2,2,3,3,3,3,3,4,4,4,5,5];
+  const v=new Array(SZ);
+  for(let i=0;i<SZ/2;i++){const r=w[Math.floor(Math.random()*w.length)];v[i]=r;v[SZ-1-i]=r;}
+  v[0]=0;v[SZ-1]=0;
+  return v;
+}
+
+/* ---------- 探索 ---------- */
+let sv,sp,ss,deadline,aborted,nodes;
+function evalPos(p){
+  const o=1-p;
+  return (ss[p]-ss[o])+0.4*(gen(sv,sp,p).length-gen(sv,sp,o).length);
+}
+function ordered(p,moves){
+  return moves.map(c=>[c,gain(sv,sp,p,c)]).sort((a,b)=>b[1]-a[1]).map(a=>a[0]);
+}
+function negamax(depth,alpha,beta,p){
+  if(((++nodes)&1023)===0&&performance.now()>deadline)aborted=true;
+  if(aborted)return 0;
+  const o=1-p;
+  const moves=gen(sv,sp,p);
+  if(moves.length===0){
+    if(gen(sv,sp,o).length===0){const d=ss[p]-ss[o];return Math.sign(d)*1000+d;}
+    return -negamax(depth,-beta,-alpha,o); // パス
+  }
+  if(depth===0)return evalPos(p);
+  let best=-Infinity;
+  for(const c of ordered(p,moves)){
+    const g=gain(sv,sp,p,c),pv=sv[c],pp=sp[p];
+    sv[c]=0;sp[p]=c;ss[p]+=g;
+    const v=-negamax(depth-1,-beta,-alpha,o);
+    sv[c]=pv;sp[p]=pp;ss[p]-=g;
+    if(aborted)return 0;
+    if(v>best)best=v;
+    if(v>alpha)alpha=v;
+    if(alpha>=beta)break;
+  }
+  return best;
+}
+function rootSearch(p,depth,order){
+  let alpha=-Infinity,bestM=order[0],bestV=-Infinity;const ties=[];
+  for(const c of order){
+    const g=gain(sv,sp,p,c),pv=sv[c],pp=sp[p];
+    sv[c]=0;sp[p]=c;ss[p]+=g;
+    const v=-negamax(depth-1,-Infinity,-alpha+0.0001,1-p);
+    sv[c]=pv;sp[p]=pp;ss[p]-=g;
+    if(aborted)return null;
+    if(v>bestV){bestV=v;bestM=c;}
+    if(v>alpha)alpha=v;
+  }
+  return{m:bestM,v:bestV};
+}
+function chooseMove(p,level){
+  sv=S.vals.slice();sp=S.pos.slice();ss=S.score.slice();aborted=false;nodes=0;
+  const moves=gen(sv,sp,p);
+  if(moves.length===1)return moves[0];
+  if(level==='low'){
+    if(Math.random()<0.45)return moves[Math.floor(Math.random()*moves.length)];
+    let bg=-1,cand=[];
+    for(const c of moves){const g=gain(sv,sp,p,c);if(g>bg){bg=g;cand=[c];}else if(g===bg)cand.push(c);}
+    return cand[Math.floor(Math.random()*cand.length)];
+  }
+  let order=ordered(p,moves);
+  if(level==='mid'){
+    deadline=performance.now()+3000;
+    const r=rootSearch(p,3,order);
+    return r?r.m:order[0];
+  }
+  // high：反復深化（約1.2秒）
+  deadline=performance.now()+1200;
+  let best=order[0];
+  for(let d=1;d<=24;d++){
+    const r=rootSearch(p,d,order);
+    if(!r)break;
+    best=r.m;
+    order=[best,...order.filter(c=>c!==best)];
+    if(Math.abs(r.v)>=900)break; // 勝敗が読み切れた
+  }
+  return best;
+}
+
+/* ---------- 描画 ---------- */
+function render(){
+  const b=$('board');b.innerHTML='';
+  const humanTurn=!S.over&&!S.busy&&S.turn===S.human;
+  const legal=humanTurn?new Set(gen(S.vals,S.pos,S.human)):new Set();
+  const cpuIdx=1-S.human;
+  for(let y=0;y<N;y++){
+    const rl=document.createElement('span');rl.className='rl';rl.textContent=y+1;b.appendChild(rl);
+    for(let x=0;x<N;x++){
+      const c=y*N+x,v=S.vals[c];
+      const el=document.createElement('button');el.type='button';
+      el.className='cell '+(v>0?'v'+v:'hole');
+      if(c===S.lastTo)el.classList.add('lastto');
+      let label=cname(c);
+      if(c===S.pos[S.human]){el.innerHTML='<div class="piece you">YOU</div>';label+=' あなたの駒';}
+      else if(c===S.pos[cpuIdx]){el.innerHTML='<div class="piece cpu">CPU</div>';label+=' CPUの駒';}
+      else if(v>0){el.innerHTML=v+'<span class="star">★</span>';label+=' 星'+v;}
+      else label+=' 穴';
+      if(legal.has(c)){
+        el.classList.add('legal');
+        if(orthAdj(c,S.pos[cpuIdx])){const s=document.createElement('span');s.className='bonus';s.textContent='+2';el.appendChild(s);label+=' 影踏み+2';}
+        el.addEventListener('click',()=>humanMove(c));
+      }else{el.tabIndex=-1;el.setAttribute('aria-disabled','true');}
+      el.setAttribute('aria-label',label);
+      b.appendChild(el);
+    }
+  }
+  $('scYou').textContent=S.score[S.human];
+  $('scCpu').textContent=S.score[cpuIdx];
+  $('remain').textContent=S.over&&S.game===0?'-':S.vals.filter(v=>v>0).length;
+  $('lvShow').textContent=S.game===0?'-':LVNAME[S.level];
+}
+function setStatus(t,cls){const s=$('status');s.textContent=t;s.className='status'+(cls?' '+cls:'');}
+function addLog(p,c,g,bonus){
+  const li=document.createElement('li');
+  const who=p===S.human?'あなた':'CPU';
+  li.innerHTML=(p===S.human?'':'<span class="c">')+who+'：'+(c<0?'パス':cname(c)+'（+'+g+(bonus?'・影踏み':'')+'）')+(p===S.human?'':'</span>');
+  $('log').appendChild(li);$('log').scrollTop=$('log').scrollHeight;
+}
+
+/* ---------- 進行 ---------- */
+function start(){
+  S.game++;
+  S.level=document.querySelector('input[name=lv]:checked').value;
+  S.human=+document.querySelector('input[name=od]:checked').value;
+  S.vals=newBoard();S.pos=[0,35];S.score=[0,0];S.turn=0;S.over=false;S.busy=false;S.lastTo=-1;
+  $('log').innerHTML='';
+  next();
+}
+function doMove(p,c){
+  const bonus=orthAdj(c,S.pos[1-p]);
+  const g=gain(S.vals,S.pos,p,c);
+  S.vals[c]=0;S.pos[p]=c;S.score[p]+=g;S.lastTo=c;
+  addLog(p,c,g,bonus);
+  S.turn=1-p;
+  next();
+}
+function humanMove(c){
+  if(S.over||S.busy||S.turn!==S.human)return;
+  doMove(S.human,c);
+}
+function next(){
+  const p=S.turn,o=1-p;
+  if(gen(S.vals,S.pos,p).length===0){
+    if(gen(S.vals,S.pos,o).length===0){finish();return;}
+    addLog(p,-1,0,false);
+    S.turn=o;
+    setStatus((p===S.human?'あなた':'CPU')+'は動けないためパス。');
+    render();
+    const id=S.game;
+    S.busy=true;setTimeout(()=>{if(id!==S.game)return;S.busy=false;next();},700);
+    return;
+  }
+  if(p===S.human){
+    S.busy=false;render();
+    setStatus('あなたの番です。点線のマスへ移動してください。');
+  }else{
+    S.busy=true;render();
+    setStatus('CPU（'+LVNAME[S.level]+'）が考え中…');
+    const id=S.game;
+    setTimeout(()=>{
+      if(id!==S.game)return;
+      const m=chooseMove(p,S.level);
+      if(id!==S.game)return;
+      S.busy=false;doMove(p,m);
+    },380);
+  }
+}
+function finish(){
+  S.over=true;S.busy=false;render();
+  const y=S.score[S.human],c=S.score[1-S.human];
+  if(y>c)setStatus('終局：あなたの勝ち！ '+y+' − '+c,'win');
+  else if(y<c)setStatus('終局：CPUの勝ち。 '+y+' − '+c,'lose');
+  else setStatus('終局：引き分け '+y+' − '+c);
+  $('startBtn').textContent='もう一局';
+}
+$('startBtn').addEventListener('click',()=>{$('startBtn').textContent='最初からやり直す';start();});
+render();
+})();
+</script>
+</body>
+</html>

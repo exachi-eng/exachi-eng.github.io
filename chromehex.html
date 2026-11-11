@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>クロム・ヘックス（Chrome Hex）</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+/* ===== 最低限CSS（Tailwind CDNが使えなくても基本操作できるよう、主要レイアウトは全てここで定義） ===== */
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:#f8f8fb;color:#1a1a1c;font-family:"Noto Sans JP","Yu Gothic","游ゴシック",YuGothic,"Hiragino Sans","Helvetica Neue",Arial,sans-serif;line-height:1.6;-webkit-text-size-adjust:100%}
+[hidden]{display:none !important}
+.ch-wrap{max-width:1000px;margin:0 auto;padding:16px}
+.ch-header{margin-bottom:12px}
+.ch-header h1{font-size:1.5rem;line-height:1.3;margin:0 0 4px;font-weight:700;letter-spacing:.02em}
+.ch-header p{margin:0;color:#55555c;font-size:.9rem}
+.ch-layout{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:860px){.ch-layout{grid-template-columns:minmax(0,1fr) 330px;align-items:start}}
+.ch-card{background:#fff;border:1px solid #d8d8de;border-radius:8px;padding:16px}
+.ch-card h2{font-size:1rem;margin:0 0 8px;font-weight:700}
+.ch-board-area{display:flex;flex-direction:column;align-items:center;gap:8px}
+.ch-side-label{width:min(100%,480px);display:flex;justify-content:space-between;font-size:.8rem;color:#55555c}
+.ch-board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;width:min(100%,480px);aspect-ratio:1/1;background:#c9c9d0;padding:4px;border-radius:8px;user-select:none;-webkit-user-select:none}
+.ch-cell{position:relative;border:0;margin:0;padding:0;background:#fff;border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;font:inherit;color:inherit;min-width:0;min-height:0;aspect-ratio:1/1;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.ch-cell.row-cp{background:#fbf2f2}
+.ch-cell.row-pl{background:#f1f4fa}
+.ch-cell:focus-visible{outline:3px solid #1a1a1c;outline-offset:-3px}
+.ch-board.locked .ch-cell{cursor:default}
+.ch-cell.last{box-shadow:inset 0 0 0 3px #a9a9b4}
+.ch-cell.sel{box-shadow:inset 0 0 0 4px #1a1a1c}
+.ch-cell.dest{background:#e9f5ea}
+.ch-cell.dest::after{content:"";position:absolute;width:26%;height:26%;border-radius:50%;background:#2e7d32;opacity:.85;pointer-events:none}
+.ch-cell.dest-cap{background:#fff1dc}
+.ch-cell.dest-cap::after{content:"";position:absolute;inset:7%;border-radius:50%;border:4px dashed #c96a00;pointer-events:none}
+.ch-coord{position:absolute;left:4px;bottom:2px;font-size:10px;color:#8a8a94;line-height:1;pointer-events:none}
+.ch-piece{width:70%;height:70%;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;color:#fff;font-weight:700;font-size:clamp(14px,5vw,26px);border:2px solid rgba(0,0,0,.28);pointer-events:none}
+.ch-piece.p{background:#2a5bd7}
+.ch-piece.c{background:#d23c3c}
+.ch-badge{position:absolute;right:-12%;top:-12%;min-width:46%;height:46%;border-radius:999px;font-size:clamp(9px,2.4vw,12px);display:flex;align-items:center;justify-content:center;background:#fff;color:#1a1a1c;border:1px solid #8a8a94;padding:0 3px;line-height:1;font-weight:700}
+.ch-badge.used{background:#55555c;color:#fff;border-color:#55555c}
+.ch-btn{border:1px solid #8a8a94;background:#fff;color:#1a1a1c;border-radius:6px;padding:8px 14px;font:inherit;font-size:.95rem;cursor:pointer;min-height:44px;touch-action:manipulation}
+.ch-btn:focus-visible{outline:3px solid #1a1a1c;outline-offset:2px}
+.ch-btn[aria-pressed="true"]{background:#1a1a1c;color:#fff;border-color:#1a1a1c}
+.ch-btn:disabled{opacity:.45;cursor:not-allowed}
+.ch-btn-primary{background:#1a1a1c;color:#fff;border-color:#1a1a1c}
+.ch-seg{display:flex;gap:6px;flex-wrap:wrap}
+.ch-seg .ch-btn{flex:1 1 0;min-width:72px}
+.ch-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ch-stack{display:flex;flex-direction:column;gap:12px}
+.ch-kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:.92rem;margin:0}
+.ch-kv dt{color:#55555c}
+.ch-kv dd{margin:0;font-weight:500;word-break:break-word}
+.ch-turn{font-size:1.1rem;font-weight:700}
+.ch-thinking{display:flex;align-items:center;gap:8px;font-size:.9rem;color:#1a1a1c;background:#f1f1f4;border:1px solid #d8d8de;border-radius:6px;padding:6px 10px}
+.ch-spin{width:16px;height:16px;border-radius:50%;border:3px solid #c9c9d0;border-top-color:#1a1a1c;animation:chspin .8s linear infinite}
+@keyframes chspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.ch-spin{animation:none}}
+.ch-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:.8rem;color:#55555c}
+.ch-legend span{display:inline-flex;align-items:center;gap:4px}
+.ch-dot{display:inline-block;width:12px;height:12px;border-radius:50%}
+.ch-rules{font-size:.88rem;margin:0;padding-left:1.2em;list-style:disc}
+.ch-rules li{margin:2px 0}
+.ch-note{font-size:.8rem;color:#55555c;margin:0}
+.ch-error{font-size:.85rem;color:#a11;margin:0}
+.ch-overlay{position:fixed;inset:0;background:rgba(20,20,24,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.ch-modal{background:#fff;border-radius:10px;max-width:400px;width:100%;padding:20px;border:1px solid #d8d8de}
+.ch-modal h2{margin:0 0 8px;font-size:1.4rem;font-weight:700}
+.ch-modal p{margin:4px 0}
+.ch-reason{display:inline-block;font-weight:700;border:1px solid #1a1a1c;border-radius:4px;padding:2px 8px;margin:4px 0}
+.ch-footer{margin-top:16px;font-size:.78rem;color:#55555c}
+</style>
+</head>
+<body class="min-h-screen">
+<div class="ch-wrap">
+  <header class="ch-header">
+    <h1>クロム・ヘックス（Chrome Hex）</h1>
+    <p>5×5盤の二人零和有限確定完全情報ゲーム。あなた（青・先手）対 CP（赤・後手）。</p>
+  </header>
+
+  <div class="ch-layout">
+    <section class="ch-card ch-board-area" aria-label="盤面">
+      <div class="ch-side-label"><span>▼ CP陣（y=0）＝あなたのゴール行</span></div>
+      <div id="board" class="ch-board" role="grid" aria-label="5×5盤面"></div>
+      <div class="ch-side-label"><span>▲ あなたの陣（y=4）＝CPのゴール行</span></div>
+      <div class="ch-legend" aria-label="凡例">
+        <span><i class="ch-dot" style="background:#2a5bd7"></i>▲ あなた</span>
+        <span><i class="ch-dot" style="background:#d23c3c"></i>▼ CP</span>
+        <span><i class="ch-dot" style="background:#2e7d32"></i>移動先</span>
+        <span><i class="ch-dot" style="border:3px dashed #c96a00"></i>捕獲先</span>
+        <span><b>↔</b> サイドステップ可</span>
+        <span><b>済</b> サイドステップ使用済</span>
+      </div>
+    </section>
+
+    <aside class="ch-stack">
+      <section class="ch-card ch-stack" aria-label="対局状況">
+        <div id="turn" class="ch-turn" aria-live="polite"></div>
+        <div id="thinking" class="ch-thinking" hidden role="status" aria-live="polite"><span class="ch-spin" aria-hidden="true"></span><span id="thinkingText">CP思考中…</span></div>
+        <dl class="ch-kv">
+          <dt>手数</dt><dd id="ply"></dd>
+          <dt>選択駒</dt><dd id="selected"></dd>
+          <dt>直前の手</dt><dd id="lastMove"></dd>
+        </dl>
+        <p id="errorMsg" class="ch-error" hidden></p>
+        <div>
+          <h2>CPの強さ</h2>
+          <div class="ch-seg" role="group" aria-label="難易度選択">
+            <button type="button" class="ch-btn" data-diff="easy">低</button>
+            <button type="button" class="ch-btn" data-diff="medium">中</button>
+            <button type="button" class="ch-btn" data-diff="hard">高</button>
+          </div>
+          <p id="diffNote" class="ch-note" style="margin-top:6px"></p>
+        </div>
+        <div class="ch-row">
+          <button type="button" id="resetBtn" class="ch-btn ch-btn-primary">リセット</button>
+          <button type="button" id="showResultBtn" class="ch-btn" hidden>結果を表示</button>
+        </div>
+      </section>
+
+      <section class="ch-card" aria-label="ルール">
+        <h2>ルール（要約）</h2>
+        <ul class="ch-rules">
+          <li>先手はあなた（青・y=4の5駒）、後手はCP（赤・y=0の5駒）。1手ずつ交代。</li>
+          <li>直進：前方1マスが空いていれば移動。</li>
+          <li>前方斜め捕獲：斜め前1マスに敵駒がいる時だけ、取って移動。</li>
+          <li>サイドステップ：左右隣の空きマスへ1マス。各駒1回限り・捕獲不可。</li>
+          <li>後退・斜め後退・空きマスへの斜め移動は不可。</li>
+          <li>勝利条件：①相手の初期行に到達（最奥到達）②相手駒を全滅 ③相手が手番開始時に合法手なし（手詰まり）。</li>
+        </ul>
+        <p class="ch-note" style="margin-top:6px">操作：青駒をタップ → ハイライトされたマスをタップ。</p>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="ch-footer">
+    <p id="selfTestStatus">自己テスト：未実行</p>
+  </footer>
+</div>
+
+<div id="resultOverlay" class="ch-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+  <div class="ch-modal">
+    <h2 id="resultTitle"></h2>
+    <p>勝因：<span id="resultReason" class="ch-reason"></span></p>
+    <p id="resultDetail"></p>
+    <p id="resultPly" class="ch-note"></p>
+    <div class="ch-row" style="margin-top:12px">
+      <button type="button" id="resultResetBtn" class="ch-btn ch-btn-primary">リセット</button>
+      <button type="button" id="resultCloseBtn" class="ch-btn">盤面を確認</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =====================================================================
+   * ルールエンジン（人間・CP共通）
+   * GameState が唯一の正規状態。DOMは描画専用で状態を保持しない。
+   * ===================================================================== */
+  var SIZE = 5;
+  var P = 'P';
+  var C = 'C';
+  var REASONS = { REACH: '最奥到達', ANNIHILATION: '全滅', STALEMATE: '手詰まり' };
+  var SIDE_NAME = { P: 'あなた', C: 'CP' };
+  var DIFF_LABEL = { easy: '低', medium: '中', hard: '高' };
+  var DIFF_NOTE = {
+    easy: '低：危険手（次の1手で相手が勝てる手）を70%の確率で避けてランダム選択',
+    medium: '中：2-ply Minimax（自手＋相手の最善応手）',
+    hard: '高：4-ply Minimax＋Alpha-Beta（上限1秒、超過時は2-ply評価）'
+  };
+  var MOVE_LABEL = { forward: '直進', capture: '前方斜め捕獲', sidestep: 'サイドステップ' };
+  var MAX_PLY_BOUND = 50;          // 構造上の上限（検証用。引き分け処理には使わない）
+  var HARD_TIME_LIMIT_MS = 1000;
+  var CP_DELAY_MS = 400;
+
+  function opponent(side) { return side === P ? C : P; }
+  function forwardDir(side) { return side === P ? -1 : 1; }
+  function goalRow(side) { return side === P ? 0 : SIZE - 1; }       // 相手の初期行
+  function homeRow(side) { return side === P ? SIZE - 1 : 0; }
+  function inBounds(x, y) { return x >= 0 && x < SIZE && y >= 0 && y < SIZE; }
+  function now() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
+
+  function makePiece(id, side, x, y, sideStepUsed) {
+    return { id: id, side: side, x: x, y: y, onBoard: true, sideStepUsed: !!sideStepUsed };
+  }
+
+  function copyMove(m) {
+    return { pieceId: m.pieceId, side: m.side, type: m.type, fromX: m.fromX, fromY: m.fromY, toX: m.toX, toY: m.toY, capturedId: m.capturedId };
+  }
+
+  function cloneState(s) {
+    return {
+      pieces: s.pieces.map(function (p) {
+        return { id: p.id, side: p.side, x: p.x, y: p.y, onBoard: p.onBoard, sideStepUsed: p.sideStepUsed };
+      }),
+      turn: s.turn,
+      ply: s.ply,
+      status: s.status,
+      winner: s.winner,
+      reason: s.reason,
+      lastMove: s.lastMove ? copyMove(s.lastMove) : null
+    };
+  }
+
+  function findPiece(s, id) {
+    for (var i = 0; i < s.pieces.length; i++) if (s.pieces[i].id === id) return s.pieces[i];
+    return null;
+  }
+
+  function pieceAt(s, x, y) {
+    for (var i = 0; i < s.pieces.length; i++) {
+      var p = s.pieces[i];
+      if (p.onBoard && p.x === x && p.y === y) return p;
+    }
+    return null;
+  }
+
+  function countOnBoard(s, side) {
+    var n = 0;
+    for (var i = 0; i < s.pieces.length; i++) if (s.pieces[i].onBoard && s.pieces[i].side === side) n++;
+    return n;
+  }
+
+  function endGame(s, winner, reasonKey) {
+    s.status = 'over';
+    s.winner = winner;
+    s.reason = reasonKey;
+    return s;
+  }
+
+  // 手番開始時の合法手ゼロ判定（初期局面にも適用）
+  function finalizeTurnStart(s) {
+    if (s.status === 'playing' && generateMovesForSide(s, s.turn).length === 0) {
+      endGame(s, opponent(s.turn), 'STALEMATE');
+    }
+    return s;
+  }
+
+  function sortPieces(pieces) {
+    // 固定順序：Player駒 → CP駒、各陣営内はID昇順（同値手選択の再現性確保）
+    return pieces.slice().sort(function (a, b) {
+      if (a.side !== b.side) return a.side === P ? -1 : 1;
+      return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+    });
+  }
+
+  function createInitialState() {
+    var pieces = [];
+    for (var x = 0; x < SIZE; x++) pieces.push(makePiece('P' + x, P, x, homeRow(P), false));
+    for (var x2 = 0; x2 < SIZE; x2++) pieces.push(makePiece('C' + x2, C, x2, homeRow(C), false));
+    return finalizeTurnStart({ pieces: pieces, turn: P, ply: 0, status: 'playing', winner: null, reason: null, lastMove: null });
+  }
+
+  // テスト・検証用の任意局面生成（ゲーム中には使用しない）
+  function createStateFromSpec(spec, turn) {
+    if (turn !== P && turn !== C) throw new Error('turn が不正です');
+    var ids = {}, pos = {};
+    var pieces = spec.map(function (o) {
+      var side = o.side || o.id.charAt(0);
+      if (side !== P && side !== C) throw new Error('陣営が不正: ' + o.id);
+      if (ids[o.id]) throw new Error('ID重複: ' + o.id);
+      ids[o.id] = true;
+      if (!inBounds(o.x, o.y)) throw new Error('盤外: ' + o.id);
+      var k = o.x + ',' + o.y;
+      if (pos[k]) throw new Error('座標重複: ' + k);
+      pos[k] = true;
+      if (o.y === goalRow(side)) throw new Error('既に最奥到達している駒は配置不可: ' + o.id);
+      return makePiece(o.id, side, o.x, o.y, o.sideStepUsed);
+    });
+    var s = { pieces: sortPieces(pieces), turn: turn, ply: 0, status: 'playing', winner: null, reason: null, lastMove: null };
+    if (countOnBoard(s, P) === 0 || countOnBoard(s, C) === 0) throw new Error('両陣営に1駒以上必要です');
+    return finalizeTurnStart(s);
+  }
+
+  function mkMove(p, type, tx, ty, capturedId) {
+    return { pieceId: p.id, side: p.side, type: type, fromX: p.x, fromY: p.y, toX: tx, toY: ty, capturedId: capturedId || null };
+  }
+
+  // 指定陣営の合法手生成（終局状態は考慮しない内部関数）
+  // 手の順序は固定：駒の固定順 → 直進 → 捕獲(左,右) → サイドステップ(左,右)
+  function generateMovesForSide(s, side) {
+    var moves = [];
+    var dy = forwardDir(side);
+    for (var i = 0; i < s.pieces.length; i++) {
+      var p = s.pieces[i];
+      if (!p.onBoard || p.side !== side) continue;
+      var fy = p.y + dy;
+      // 1. 直進：前方1マスが空いている場合のみ
+      if (inBounds(p.x, fy) && !pieceAt(s, p.x, fy)) moves.push(mkMove(p, 'forward', p.x, fy, null));
+      // 2. 前方斜め捕獲：斜め前方1マスに敵駒がいる場合のみ
+      for (var d = -1; d <= 1; d += 2) {
+        var cx = p.x + d;
+        if (inBounds(cx, fy)) {
+          var t = pieceAt(s, cx, fy);
+          if (t && t.side !== side) moves.push(mkMove(p, 'capture', cx, fy, t.id));
+        }
+      }
+      // 3. サイドステップ：左右の空きマスのみ（捕獲不可）、駒ごと1回限り
+      if (!p.sideStepUsed) {
+        for (var d2 = -1; d2 <= 1; d2 += 2) {
+          var sx = p.x + d2;
+          if (inBounds(sx, p.y) && !pieceAt(s, sx, p.y)) moves.push(mkMove(p, 'sidestep', sx, p.y, null));
+        }
+      }
+    }
+    return moves;
+  }
+
+  // 公開：現在の手番側の合法手（終局後は空）
+  function getLegalMoves(s) {
+    if (!s || s.status !== 'playing') return [];
+    return generateMovesForSide(s, s.turn);
+  }
+
+  function moveKey(m) {
+    return [m.pieceId, m.type, m.fromX, m.fromY, m.toX, m.toY, m.capturedId || '-'].join(':');
+  }
+
+  function isLegalMove(s, m) {
+    if (!m) return false;
+    var k = moveKey(m);
+    return getLegalMoves(s).some(function (x) { return moveKey(x) === k; });
+  }
+
+  // 着手適用（検証付き・非破壊）。新しい GameState を返す。
+  function applyMove(s, m) {
+    if (!s || s.status !== 'playing') throw new Error('終局後は着手できません');
+    if (!m) throw new Error('手が指定されていません');
+    var k = moveKey(m);
+    var legal = getLegalMoves(s);
+    var match = null;
+    for (var i = 0; i < legal.length; i++) if (moveKey(legal[i]) === k) { match = legal[i]; break; }
+    if (!match) throw new Error('非合法手: ' + k);
+    return applyMoveInternal(s, match);
+  }
+
+  // 合法手生成関数が返した手のみを前提とする内部適用（非破壊）＋終局判定
+  function applyMoveInternal(s, m) {
+    var ns = cloneState(s);
+    var piece = findPiece(ns, m.pieceId);
+    if (m.capturedId) {
+      var cap = findPiece(ns, m.capturedId);
+      cap.onBoard = false;
+    }
+    piece.x = m.toX;
+    piece.y = m.toY;
+    if (m.type === 'sidestep') piece.sideStepUsed = true;
+    ns.ply += 1;
+    ns.lastMove = copyMove(m);
+    return judgeAfterMove(ns, m.side, piece);
+  }
+
+  // 終局判定（着手直後、厳密な順序）
+  function judgeAfterMove(ns, mover, piece) {
+    var opp = opponent(mover);
+    // 判定1［最奥到達］
+    if (piece.y === goalRow(mover)) return endGame(ns, mover, 'REACH');
+    // 判定2［全滅］
+    if (countOnBoard(ns, opp) === 0) return endGame(ns, mover, 'ANNIHILATION');
+    // 判定3［手詰まり］：手番交代後、相手に合法手がなければ着手側の勝利
+    ns.turn = opp;
+    if (generateMovesForSide(ns, opp).length === 0) return endGame(ns, mover, 'STALEMATE');
+    return ns;
+  }
+
+  /* =====================================================================
+   * 評価関数（CP視点・値が大きいほどCP有利）
+   *
+   * 終局：CP勝ち = WIN_SCORE - 探索距離、Player勝ち = -WIN_SCORE + 探索距離
+   *       （通常評価の最大幅 33,505 を大きく上回るため常に最優先）
+   *
+   * 非終局局面（両陣営に1駒以上存在し、どちらもゴール行に到達していない）：
+   *  1. 最奥到達距離 D = (Player駒のゴール行までの最短距離) − (CP駒のゴール行までの最短距離)
+   *     ・CP駒の距離 = 4 − y の最小値（1〜4）、Player駒の距離 = y の最小値（1〜4）
+   *     ・範囲 −3〜+3。CPが相手より先にゴールに近いほど大きい。
+   *  2. 駒数差 N = CP残存駒数 − Player残存駒数（範囲 −4〜+4）
+   *  3. 前進量 A = Σ(CP駒の y) − Σ(Player駒の 4 − y)（各合計0〜15、範囲 −15〜+15）
+   *  4. 敵の即時脅威マス数 T = Playerの前方斜め捕獲範囲に入っているCP駒のマス数（0〜5）
+   *     （CPにとって少ないほど良いので −T として加算）
+   *
+   *  score = D×5000 + N×400 + A×10 − T×1
+   *  分離の確認：
+   *   T の変動幅 5 < A の1単位 10
+   *   A の変動幅 30×10 + 5 = 305 < N の1単位 400
+   *   N の変動幅 8×400 + 305 = 3505 < D の1単位 5000
+   *  よって上位項目の1単位差は下位項目の全変動で逆転しない（辞書式順序と等価）。
+   * ===================================================================== */
+  var WIN_SCORE = 1000000;
+  var W_DIST = 5000, W_PIECE = 400, W_ADV = 10, W_THREAT = 1;
+
+  function evaluate(s, dist) {
+    dist = dist || 0;
+    if (s.status === 'over') return s.winner === C ? WIN_SCORE - dist : -WIN_SCORE + dist;
+    var cpMin = Infinity, plMin = Infinity, cpCount = 0, plCount = 0, cpAdv = 0, plAdv = 0, threat = 0;
+    for (var i = 0; i < s.pieces.length; i++) {
+      var p = s.pieces[i];
+      if (!p.onBoard) continue;
+      if (p.side === C) {
+        cpCount++;
+        cpAdv += p.y;
+        cpMin = Math.min(cpMin, (SIZE - 1) - p.y);
+        // Player駒は (x±1, y+1) の位置からこのCP駒を前方斜め捕獲できる
+        var a1 = pieceAt(s, p.x - 1, p.y + 1), a2 = pieceAt(s, p.x + 1, p.y + 1);
+        if ((a1 && a1.side === P) || (a2 && a2.side === P)) threat++;
+      } else {
+        plCount++;
+        plAdv += (SIZE - 1) - p.y;
+        plMin = Math.min(plMin, p.y);
+      }
+    }
+    var D = plMin - cpMin;
+    var N = cpCount - plCount;
+    var A = cpAdv - plAdv;
+    return D * W_DIST + N * W_PIECE + A * W_ADV - threat * W_THREAT;
+  }
+
+  /* =====================================================================
+   * CP思考エンジン（必ず共通ルールエンジンの合法手から選択）
+   * 探索は実戦状態の複製上でのみ行い、全ての着手は非破壊適用。
+   * ===================================================================== */
+  var TIMEOUT = { timeout: true };
+
+  function minimax(s, depth, dist, ctx) {
+    ctx.nodes++;
+    if (s.status === 'over' || depth === 0) return evaluate(s, dist);
+    var moves = getLegalMoves(s);
+    var best, i, v;
+    if (s.turn === C) {
+      best = -Infinity;
+      for (i = 0; i < moves.length; i++) {
+        v = minimax(applyMoveInternal(s, moves[i]), depth - 1, dist + 1, ctx);
+        if (v > best) best = v;
+      }
+    } else {
+      best = Infinity;
+      for (i = 0; i < moves.length; i++) {
+        v = minimax(applyMoveInternal(s, moves[i]), depth - 1, dist + 1, ctx);
+        if (v < best) best = v;
+      }
+    }
+    return best;
+  }
+
+  function alphaBeta(s, depth, alpha, beta, dist, ctx) {
+    if (now() >= ctx.deadline) throw TIMEOUT;
+    ctx.nodes++;
+    if (s.status === 'over' || depth === 0) return evaluate(s, dist);
+    var moves = getLegalMoves(s);
+    var i, v, best;
+    if (s.turn === C) {
+      best = -Infinity;
+      for (i = 0; i < moves.length; i++) {
+        v = alphaBeta(applyMoveInternal(s, moves[i]), depth - 1, alpha, beta, dist + 1, ctx);
+        if (v > best) best = v;
+        if (best > alpha) alpha = best;
+        if (alpha >= beta) break;
+      }
+    } else {
+      best = Infinity;
+      for (i = 0; i < moves.length; i++) {
+        v = alphaBeta(applyMoveInternal(s, moves[i]), depth - 1, alpha, beta, dist + 1, ctx);
+        if (v < best) best = v;
+        if (best < beta) beta = best;
+        if (alpha >= beta) break;
+      }
+    }
+    return best;
+  }
+
+  // 中：2-ply（CPの候補手 → Playerの最善応手）。同値は固定順序の先頭を採用。
+  function searchTwoPly(work, legal, ctx) {
+    var best = null, bestV = -Infinity;
+    for (var i = 0; i < legal.length; i++) {
+      var v = minimax(applyMoveInternal(work, legal[i]), 1, 1, ctx);
+      if (v > bestV) { bestV = v; best = legal[i]; }
+    }
+    return { move: best, value: bestV };
+  }
+
+  // 高：深さ4 plyの Alpha-Beta。根では厳密に「より大きい」場合のみ更新（同値は先頭固定）。
+  function searchAlphaBeta4(work, legal, timeLimitMs, ctx) {
+    ctx.deadline = now() + timeLimitMs;
+    var best = null, bestV = -Infinity, alpha = -Infinity;
+    for (var i = 0; i < legal.length; i++) {
+      var v = alphaBeta(applyMoveInternal(work, legal[i]), 3, alpha, Infinity, 1, ctx);
+      if (v > bestV) { bestV = v; best = legal[i]; }
+      if (bestV > alpha) alpha = bestV;
+    }
+    return { move: best, value: bestV };
+  }
+
+  // 低：危険手 = 着手後、相手が次の1手で勝利できる応手が存在する手
+  function isDangerousForCp(work, m) {
+    var s2 = applyMoveInternal(work, m);
+    if (s2.status === 'over') return false; // 着手で即終局（着手側=CPの勝利）なので安全
+    var replies = getLegalMoves(s2);
+    for (var i = 0; i < replies.length; i++) {
+      var s3 = applyMoveInternal(s2, replies[i]);
+      if (s3.status === 'over' && s3.winner === P) return true;
+    }
+    return false;
+  }
+
+  function pickUniform(arr, rng) {
+    var idx = Math.floor(rng() * arr.length);
+    if (!(idx >= 0)) idx = 0;
+    if (idx > arr.length - 1) idx = arr.length - 1;
+    return arr[idx];
+  }
+
+  function chooseCpMove(state, difficulty, opts) {
+    opts = opts || {};
+    if (!state || state.status !== 'playing') throw new Error('終局後はCPは着手しません');
+    if (state.turn !== C) throw new Error('CPの手番ではありません');
+    var work = cloneState(state);             // 実戦状態へ漏れないよう複製上で探索
+    var legal = getLegalMoves(work);
+    if (legal.length === 0) throw new Error('合法手がありません');
+    var rng = opts.rng || Math.random;
+    var move, info, ctx;
+
+    if (difficulty === 'easy') {
+      var safe = legal.filter(function (m) { return !isDangerousForCp(work, m); });
+      var pool;
+      if (safe.length > 0) {
+        pool = rng() < 0.7 ? 'safe' : 'all';
+      } else {
+        pool = 'all';
+      }
+      move = pickUniform(pool === 'safe' ? safe : legal, rng);
+      info = { difficulty: 'easy', safeCount: safe.length, legalCount: legal.length, pool: pool, fallback: false };
+    } else if (difficulty === 'medium') {
+      ctx = { nodes: 0 };
+      var r = searchTwoPly(work, legal, ctx);
+      move = r.move;
+      info = { difficulty: 'medium', value: r.value, nodes: ctx.nodes, fallback: false };
+    } else if (difficulty === 'hard') {
+      var limit = (typeof opts.timeLimitMs === 'number') ? opts.timeLimitMs : HARD_TIME_LIMIT_MS;
+      ctx = { nodes: 0, deadline: 0 };
+      try {
+        var rh = searchAlphaBeta4(work, legal, limit, ctx);
+        move = rh.move;
+        info = { difficulty: 'hard', value: rh.value, nodes: ctx.nodes, fallback: false };
+      } catch (e) {
+        if (e !== TIMEOUT) throw e;
+        var ctx2 = { nodes: 0 };
+        var rf = searchTwoPly(work, legal, ctx2);
+        move = rf.move;
+        info = { difficulty: 'hard', value: rf.value, nodes: ctx.nodes + ctx2.nodes, fallback: true };
+      }
+    } else {
+      throw new Error('不明な難易度: ' + difficulty);
+    }
+
+    if (!move || !isLegalMove(state, move)) throw new Error('CPが非合法手を選択しました');
+    return { move: copyMove(move), info: info };
+  }
+
+  /* =====================================================================
+   * ゲーム制御（UI非依存。テストからも生成可能）
+   * ===================================================================== */
+  function createController(hooks) {
+    var c = {
+      state: null, difficulty: 'medium', selectedId: null, cpThinking: false,
+      timerId: null, token: 0, lastCpInfo: null, resultDismissed: false, error: null
+    };
+    function emit() { if (hooks && hooks.onChange) hooks.onChange(c); }
+
+    c.canHumanAct = function () {
+      return !!c.state && c.state.status === 'playing' && c.state.turn === P && !c.cpThinking;
+    };
+
+    c.reset = function () {
+      if (c.timerId !== null) hooks.cancel(c.timerId);
+      c.timerId = null;
+      c.token++;                        // 進行中・予約済みのCP処理を無効化
+      c.state = createInitialState();
+      c.selectedId = null;
+      c.cpThinking = false;
+      c.lastCpInfo = null;
+      c.resultDismissed = false;
+      c.error = null;
+      emit();
+      if (c.state.status === 'playing' && c.state.turn === C) scheduleCp();
+    };
+
+    c.setDifficulty = function (d) {
+      if (!DIFF_LABEL[d] || c.cpThinking) return false;
+      c.difficulty = d;
+      emit();
+      return true;
+    };
+
+    c.clickCell = function (x, y) {
+      if (!c.canHumanAct()) return;
+      var s = c.state;
+      var legal = getLegalMoves(s);
+      if (c.selectedId) {
+        var m = null;
+        for (var i = 0; i < legal.length; i++) {
+          if (legal[i].pieceId === c.selectedId && legal[i].toX === x && legal[i].toY === y) { m = legal[i]; break; }
+        }
+        if (m) {
+          c.selectedId = null;
+          c.state = applyMove(s, m);
+          emit();
+          if (c.state.status === 'playing' && c.state.turn === C) scheduleCp();
+          return;
+        }
+      }
+      var p = pieceAt(s, x, y);
+      if (p && p.side === P) {
+        c.selectedId = (c.selectedId === p.id) ? null : p.id;
+      } else {
+        c.selectedId = null;
+      }
+      emit();
+    };
+
+    c.dismissResult = function () { c.resultDismissed = true; emit(); };
+    c.showResult = function () { c.resultDismissed = false; emit(); };
+
+    function scheduleCp() {
+      c.cpThinking = true;
+      c.selectedId = null;
+      var t = c.token;
+      emit();
+      c.timerId = hooks.schedule(function () {
+        if (t !== c.token) return;
+        c.timerId = null;
+        try {
+          var res = chooseCpMove(c.state, c.difficulty);
+          if (t !== c.token) return;
+          c.state = applyMove(c.state, res.move);
+          c.lastCpInfo = res.info;
+        } catch (e) {
+          if (typeof console !== 'undefined') console.error(e);
+          c.error = 'CP処理でエラーが発生しました：' + (e && e.message ? e.message : e);
+        }
+        c.cpThinking = false;
+        emit();
+      }, CP_DELAY_MS);
+    }
+
+    return c;
+  }
+
+  /* =====================================================================
+   * 自己テスト（開発者コンソールから ChromeHex.runSelfTests() で実行可能）
+   * ===================================================================== */
+  function mulberry32(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function runSelfTests(options) {
+    options = options || {};
+    var results = [];
+    function assert(cond, msg) { if (!cond) throw new Error(msg || 'assert失敗'); }
+    function eq(a, b, msg) { if (a !== b) throw new Error((msg || '値不一致') + '（期待: ' + b + ' / 実際: ' + a + '）'); }
+    function test(name, fn) {
+      try { fn(); results.push({ test: name, result: '合格' }); }
+      catch (e) { results.push({ test: name, result: '不合格', error: e && e.message ? e.message : String(e) }); }
+    }
+    function S(arr, turn) {
+      return createStateFromSpec(arr.map(function (a) { return { id: a[0], x: a[1], y: a[2], sideStepUsed: !!a[3] }; }), turn);
+    }
+    function find(s, pid, tx, ty) {
+      var l = getLegalMoves(s);
+      for (var i = 0; i < l.length; i++) if (l[i].pieceId === pid && l[i].toX === tx && l[i].toY === ty) return l[i];
+      return null;
+    }
+    function throws(fn) { try { fn(); } catch (e) { return true; } return false; }
+    function snap(s) { return JSON.stringify(s); }
+
+    test('初期配置（Player y=4・CP y=0・各5駒・サイドステップ未使用）', function () {
+      var s = createInitialState();
+      eq(s.pieces.length, 10, '駒数');
+      for (var x = 0; x < 5; x++) {
+        var p = pieceAt(s, x, 4), c = pieceAt(s, x, 0);
+        assert(p && p.side === P && !p.sideStepUsed && p.onBoard, 'Player駒 (' + x + ',4)');
+        assert(c && c.side === C && !c.sideStepUsed && c.onBoard, 'CP駒 (' + x + ',0)');
+      }
+      for (var y = 1; y <= 3; y++) for (var x2 = 0; x2 < 5; x2++) assert(!pieceAt(s, x2, y), '中央は空');
+    });
+
+    test('初手Player・ply=0・進行中、初期合法手は直進5手のみ', function () {
+      var s = createInitialState();
+      eq(s.turn, P, '初手'); eq(s.ply, 0, 'ply'); eq(s.status, 'playing', 'status');
+      var l = getLegalMoves(s);
+      eq(l.length, 5, '合法手数');
+      assert(l.every(function (m) { return m.side === P && m.type === 'forward' && m.toY === 3; }), '全て直進');
+    });
+
+    test('手番交代（P→C→P）とply加算', function () {
+      var s = createInitialState();
+      s = applyMove(s, find(s, 'P0', 0, 3));
+      eq(s.turn, C, '交代1'); eq(s.ply, 1, 'ply1');
+      assert(getLegalMoves(s).every(function (m) { return m.side === C; }), 'CPの手のみ');
+      s = applyMove(s, find(s, 'C4', 4, 1));
+      eq(s.turn, P, '交代2'); eq(s.ply, 2, 'ply2');
+    });
+
+    test('直進：空きマスへ移動可、前方が塞がっていれば不可（敵味方とも）', function () {
+      var s = S([['P2', 2, 2], ['C2', 2, 1], ['P3', 3, 2], ['P4', 3, 3], ['C0', 0, 0]], P);
+      assert(!find(s, 'P2', 2, 1), '敵で塞がる');
+      assert(!find(s, 'P4', 3, 2), '味方で塞がる');
+      var s2 = S([['P2', 2, 2], ['C0', 0, 0]], P);
+      var m = find(s2, 'P2', 2, 1);
+      assert(m && m.type === 'forward', '直進可');
+      var s3 = applyMove(s2, m);
+      eq(findPiece(s3, 'P2').y, 1, '移動後y');
+    });
+
+    test('前方斜め捕獲と敵駒の除去（Player・CP双方向）', function () {
+      var s = S([['P2', 2, 2], ['C1', 1, 1], ['C4', 4, 0]], P);
+      var m = find(s, 'P2', 1, 1);
+      assert(m && m.type === 'capture' && m.capturedId === 'C1', '捕獲手');
+      var s2 = applyMove(s, m);
+      eq(findPiece(s2, 'C1').onBoard, false, '敵除去');
+      eq(pieceAt(s2, 1, 1).id, 'P2', '捕獲マスに移動');
+      eq(s2.status, 'playing', '継続'); eq(s2.turn, C, '交代');
+      var t = S([['C1', 1, 1], ['P2', 2, 2], ['P0', 0, 4]], C);
+      var mc = find(t, 'C1', 2, 2);
+      assert(mc && mc.type === 'capture', 'CP捕獲手');
+      var t2 = applyMove(t, mc);
+      eq(findPiece(t2, 'P2').onBoard, false, 'Player駒除去');
+    });
+
+    test('空きマスへの斜め移動・後退・斜め後退の禁止', function () {
+      var s = S([['P2', 2, 2], ['C0', 0, 0]], P);
+      [[1, 1], [3, 1], [2, 3], [1, 3], [3, 3]].forEach(function (d) { assert(!find(s, 'P2', d[0], d[1]), '禁止 (' + d + ')'); });
+      assert(throws(function () { applyMove(s, { pieceId: 'P2', side: P, type: 'forward', fromX: 2, fromY: 2, toX: 2, toY: 3, capturedId: null }); }), '後退拒否');
+      assert(throws(function () { applyMove(s, { pieceId: 'P2', side: P, type: 'capture', fromX: 2, fromY: 2, toX: 1, toY: 1, capturedId: null }); }), '空き斜め拒否');
+      var t = S([['C2', 2, 2], ['P0', 0, 4]], C);
+      [[2, 1], [1, 1], [3, 1], [1, 3], [3, 3]].forEach(function (d) { assert(!find(t, 'C2', d[0], d[1]), 'CP禁止 (' + d + ')'); });
+    });
+
+    test('盤外移動の禁止', function () {
+      var s = S([['P0', 0, 2], ['C4', 4, 0]], P);
+      var l = getLegalMoves(s);
+      assert(l.every(function (m) { return inBounds(m.toX, m.toY); }), '盤内のみ');
+      eq(l.length, 2, 'P0は直進と右サイドステップのみ');
+      var t = S([['C4', 4, 3], ['P0', 0, 4]], C);
+      assert(getLegalMoves(t).every(function (m) { return inBounds(m.toX, m.toY); }), 'CP盤内のみ');
+    });
+
+    test('サイドステップ：空きマスのみ・捕獲不可', function () {
+      var s = S([['P2', 2, 2], ['P1', 1, 2], ['C3', 3, 2], ['C0', 0, 0]], P);
+      var p2 = getLegalMoves(s).filter(function (m) { return m.pieceId === 'P2' && m.type === 'sidestep'; });
+      eq(p2.length, 0, '味方・敵のいるマスへは不可');
+      assert(!find(s, 'P2', 3, 2), '横方向の捕獲不可');
+      var e = S([['P2', 2, 2], ['C0', 0, 0]], P);
+      var ss = getLegalMoves(e).filter(function (m) { return m.type === 'sidestep'; });
+      eq(ss.length, 2, '両側空きなら2手');
+    });
+
+    test('サイドステップ：同じ駒による二度使用の禁止', function () {
+      var s = S([['P2', 2, 2], ['C0', 0, 0]], P);
+      s = applyMove(s, find(s, 'P2', 3, 2));
+      eq(findPiece(s, 'P2').sideStepUsed, true, 'フラグ');
+      s = applyMove(s, find(s, 'C0', 0, 1));
+      eq(s.turn, P, '手番');
+      assert(getLegalMoves(s).every(function (m) { return !(m.pieceId === 'P2' && m.type === 'sidestep'); }), '再使用不可');
+      assert(throws(function () { applyMove(s, { pieceId: 'P2', side: P, type: 'sidestep', fromX: 3, fromY: 2, toX: 4, toY: 2, capturedId: null }); }), '強制適用も拒否');
+      s = applyMove(s, find(s, 'P2', 3, 1));
+      eq(findPiece(s, 'P2').sideStepUsed, true, '前進後もフラグ維持');
+    });
+
+    test('最奥到達（Player・CP）', function () {
+      var s = applyMove(S([['P2', 2, 1], ['C0', 0, 0]], P), { pieceId: 'P2', side: P, type: 'forward', fromX: 2, fromY: 1, toX: 2, toY: 0, capturedId: null });
+      eq(s.status, 'over'); eq(s.winner, P); eq(s.reason, 'REACH');
+      var t = applyMove(S([['C2', 2, 3], ['P0', 0, 4]], C), { pieceId: 'C2', side: C, type: 'forward', fromX: 2, fromY: 3, toX: 2, toY: 4, capturedId: null });
+      eq(t.winner, C); eq(t.reason, 'REACH');
+    });
+
+    test('全滅', function () {
+      var s = S([['P2', 2, 2], ['C1', 1, 1]], P);
+      s = applyMove(s, find(s, 'P2', 1, 1));
+      eq(s.status, 'over'); eq(s.winner, P); eq(s.reason, 'ANNIHILATION');
+    });
+
+    test('手詰まり（手番交代後の合法手ゼロ）', function () {
+      var s = S([['P0', 0, 2], ['P4', 4, 4], ['C0', 0, 0, true]], P);
+      s = applyMove(s, find(s, 'P0', 0, 1));
+      eq(s.status, 'over'); eq(s.winner, P); eq(s.reason, 'STALEMATE');
+      eq(getLegalMoves(s).length, 0, '終局後合法手なし');
+    });
+
+    test('終局判定の優先順位（最奥到達 ＞ 全滅 ＞ 手詰まり）', function () {
+      var a = S([['P2', 2, 1], ['C1', 1, 0]], P);
+      a = applyMove(a, find(a, 'P2', 1, 0));
+      eq(a.reason, 'REACH', '到達＋全滅は到達');
+      var b = S([['P0', 0, 1], ['P2', 2, 1], ['C0', 0, 0, true]], P);
+      b = applyMove(b, find(b, 'P2', 2, 0));
+      eq(b.reason, 'REACH', '到達＋手詰まりは到達');
+      var c = S([['P2', 2, 2], ['C1', 1, 1]], P);
+      c = applyMove(c, find(c, 'P2', 1, 1));
+      eq(c.reason, 'ANNIHILATION', '全滅＋（相手駒なし）は全滅');
+    });
+
+    test('初期局面の合法手ゼロ判定（手番側の手詰まり負け）', function () {
+      var s = S([['P0', 0, 4, true], ['C0', 0, 3]], P);
+      eq(s.status, 'over'); eq(s.winner, C); eq(s.reason, 'STALEMATE');
+      var std = createInitialState();
+      eq(std.status, 'playing', '標準初期局面は進行可能');
+    });
+
+    test('終局後は着手不可', function () {
+      var s = S([['P2', 2, 1], ['C0', 0, 0]], P);
+      s = applyMove(s, find(s, 'P2', 2, 0));
+      eq(getLegalMoves(s).length, 0);
+      assert(throws(function () { applyMove(s, { pieceId: 'C0', side: C, type: 'forward', fromX: 0, fromY: 0, toX: 0, toY: 1, capturedId: null }); }), '着手拒否');
+      assert(throws(function () { chooseCpMove(s, 'medium'); }), 'CPも着手しない');
+    });
+
+    test('有限性：ランダム対局300局が全て50 ply以内に勝敗確定（駒ごと前進≤4・横≤1）', function () {
+      var rng = mulberry32(12345);
+      for (var g = 0; g < 300; g++) {
+        var s = createInitialState();
+        var fwd = {}, side = {};
+        while (s.status === 'playing') {
+          var l = getLegalMoves(s);
+          assert(l.length > 0, '進行中は合法手あり');
+          var m = pickUniform(l, rng);
+          assert(inBounds(m.toX, m.toY), '盤内');
+          if (m.type === 'sidestep') side[m.pieceId] = (side[m.pieceId] || 0) + 1;
+          else fwd[m.pieceId] = (fwd[m.pieceId] || 0) + 1;
+          s = applyMove(s, m);
+          assert(s.ply <= MAX_PLY_BOUND, '50 ply超過');
+        }
+        assert(s.winner === P || s.winner === C, '勝者確定');
+        assert(REASONS[s.reason], '勝因');
+        Object.keys(fwd).forEach(function (k) { assert(fwd[k] <= 4, '前進回数'); });
+        Object.keys(side).forEach(function (k) { assert(side[k] <= 1, '横移動回数'); });
+      }
+    });
+
+    test('CP全難易度が合法手のみを選択し、探索前後で実戦GameStateが不変', function () {
+      var rng = mulberry32(777);
+      for (var g = 0; g < 3; g++) {
+        var s = createInitialState();
+        var turnIdx = 0;
+        while (s.status === 'playing') {
+          if (s.turn === P) {
+            s = applyMove(s, pickUniform(getLegalMoves(s), rng));
+          } else {
+            var before = snap(s);
+            ['easy', 'medium', 'hard'].forEach(function (d) {
+              var r = chooseCpMove(s, d, { rng: rng });
+              assert(isLegalMove(s, r.move), d + '：合法手');
+              eq(snap(s), before, d + '：状態不変');
+            });
+            var pick = ['easy', 'medium', 'hard'][turnIdx++ % 3];
+            s = applyMove(s, chooseCpMove(s, pick, { rng: rng }).move);
+          }
+        }
+      }
+    });
+
+    test('低：安全手70%／全手30%の分岐と危険手の判定', function () {
+      var s = S([['P0', 0, 4], ['P3', 3, 1], ['C0', 0, 0], ['C4', 4, 0]], C);
+      var legal = getLegalMoves(s);
+      var work = cloneState(s);
+      var safe = legal.filter(function (m) { return !isDangerousForCp(work, m); });
+      eq(safe.length, 2, '安全手数');
+      assert(isDangerousForCp(work, legal[0]), '先頭手は危険手');
+      var r1 = chooseCpMove(s, 'easy', { rng: function () { return 0; } });
+      eq(r1.info.pool, 'safe', 'rng<0.7で安全手集合');
+      assert(!isDangerousForCp(work, r1.move), '安全手を選択');
+      var seq = [0.95, 0], k = 0;
+      var r2 = chooseCpMove(s, 'easy', { rng: function () { return seq[k++]; } });
+      eq(r2.info.pool, 'all', 'rng≥0.7で全手集合');
+      eq(moveKey(r2.move), moveKey(legal[0]), '全手集合から均等選択');
+      var none = S([['P2', 2, 1], ['P4', 4, 1], ['C0', 0, 0, true]], C);
+      var r3 = chooseCpMove(none, 'easy', { rng: function () { return 0; } });
+      eq(r3.info.safeCount, 0); eq(r3.info.pool, 'all', '安全手なしは全手');
+    });
+
+    test('中・高：即勝利手の選択と同値手選択の再現性', function () {
+      var s = S([['C2', 2, 3], ['C0', 0, 0], ['P0', 0, 4], ['P4', 4, 4]], C);
+      ['medium', 'hard'].forEach(function (d) {
+        var r = chooseCpMove(s, d);
+        eq(r.move.toY, 4, d + '：最奥到達手');
+        eq(moveKey(chooseCpMove(s, d).move), moveKey(r.move), d + '：再現性');
+      });
+      var init = applyMove(createInitialState(), { pieceId: 'P2', side: P, type: 'forward', fromX: 2, fromY: 4, toX: 2, toY: 3, capturedId: null });
+      eq(moveKey(chooseCpMove(init, 'hard').move), moveKey(chooseCpMove(init, 'hard').move), '高：同局面で同じ手');
+    });
+
+    test('高：時間超過時は2-ply評価へフォールバックし合法手を返す', function () {
+      var s = applyMove(createInitialState(), { pieceId: 'P0', side: P, type: 'forward', fromX: 0, fromY: 4, toX: 0, toY: 3, capturedId: null });
+      var before = snap(s);
+      var r = chooseCpMove(s, 'hard', { timeLimitMs: 0 });
+      eq(r.info.fallback, true, 'フォールバック');
+      assert(isLegalMove(s, r.move), '合法手');
+      eq(moveKey(r.move), moveKey(chooseCpMove(s, 'medium').move), '2-ply結果と一致');
+      eq(snap(s), before, '状態不変');
+    });
+
+    test('評価関数：終局評価が常に通常評価より優先', function () {
+      var rng = mulberry32(99);
+      var maxAbs = 0;
+      for (var g = 0; g < 100; g++) {
+        var s = createInitialState();
+        while (s.status === 'playing') {
+          maxAbs = Math.max(maxAbs, Math.abs(evaluate(s, 0)));
+          s = applyMove(s, pickUniform(getLegalMoves(s), rng));
+        }
+        assert(Math.abs(evaluate(s, MAX_PLY_BOUND)) > maxAbs, '終局優先');
+      }
+      assert(maxAbs <= 3 * W_DIST + 4 * W_PIECE + 15 * W_ADV + 5 * W_THREAT, '通常評価の範囲');
+    });
+
+    test('入力制御：CP思考中・終局後の人間入力を無効化', function () {
+      var queue = [];
+      var ctl = createController({ onChange: function () {}, schedule: function (fn) { queue.push(fn); return queue.length; }, cancel: function () {} });
+      ctl.reset();
+      ctl.clickCell(2, 4); ctl.clickCell(2, 3);
+      eq(ctl.cpThinking, true, '思考中');
+      var b = snap(ctl.state);
+      ctl.clickCell(1, 4); ctl.clickCell(1, 3);
+      eq(snap(ctl.state), b, '思考中は入力無視');
+      eq(ctl.setDifficulty('easy'), false, '思考中は難易度変更不可');
+      queue.shift()();
+      eq(ctl.cpThinking, false); eq(ctl.state.turn, P, 'CP着手後は人間手番');
+      ctl.state = applyMove(S([['P2', 2, 1], ['C0', 0, 0]], P), { pieceId: 'P2', side: P, type: 'forward', fromX: 2, fromY: 1, toX: 2, toY: 0, capturedId: null });
+      var o = snap(ctl.state);
+      ctl.clickCell(0, 0);
+      eq(snap(ctl.state), o, '終局後は入力無視');
+    });
+
+    test('リセット後に初期状態へ完全復帰（予約中のCP処理も無効化）', function () {
+      var queue = [], cancelled = [];
+      var ctl = createController({ onChange: function () {}, schedule: function (fn) { queue.push(fn); return queue.length; }, cancel: function (id) { cancelled.push(id); } });
+      ctl.reset();
+      ctl.setDifficulty('hard');
+      ctl.clickCell(2, 4);
+      eq(ctl.selectedId, 'P2', '選択');
+      ctl.clickCell(2, 3);
+      assert(ctl.timerId !== null && ctl.cpThinking, 'CP予約中');
+      ctl.reset();
+      eq(snap(ctl.state), snap(createInitialState()), '状態一致');
+      eq(ctl.selectedId, null); eq(ctl.cpThinking, false); eq(ctl.timerId, null);
+      eq(ctl.lastCpInfo, null); eq(ctl.resultDismissed, false); eq(ctl.error, null);
+      eq(cancelled.length, 1, 'タイマー解除');
+      while (queue.length) queue.shift()();   // 解除漏れを想定して古い予約処理を強制実行
+      eq(snap(ctl.state), snap(createInitialState()), '古いCP処理は反映されない');
+      eq(ctl.cpThinking, false, '古いCP処理で思考中に戻らない');
+    });
+
+    var passed = results.filter(function (r) { return r.result === '合格'; }).length;
+    var summary = { passed: passed, total: results.length, results: results };
+    if (!options.quiet && typeof console !== 'undefined') {
+      if (console.group) console.group('Chrome Hex 自己テスト：' + passed + '/' + results.length + ' 合格');
+      if (console.table) console.table(results); else console.log(results);
+      if (console.groupEnd) console.groupEnd();
+    }
+    return summary;
+  }
+
+  /* =====================================================================
+   * UI（描画専用。状態は controller.state = GameState のみを参照）
+   * ===================================================================== */
+  var controller = null;
+
+  function initUI() {
+    var boardEl = document.getElementById('board');
+    var cells = [];
+    for (var y = 0; y < SIZE; y++) {
+      for (var x = 0; x < SIZE; x++) {
+        (function (cx, cy) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'ch-cell';
+          b.setAttribute('role', 'gridcell');
+          b.dataset.x = String(cx);
+          b.dataset.y = String(cy);
+          b.addEventListener('click', function (ev) { ev.preventDefault(); if (controller) controller.clickCell(cx, cy); });
+          boardEl.appendChild(b);
+          cells.push(b);
+        })(x, y);
+      }
+    }
+
+    var el = {
+      turn: document.getElementById('turn'),
+      thinking: document.getElementById('thinking'),
+      thinkingText: document.getElementById('thinkingText'),
+      ply: document.getElementById('ply'),
+      selected: document.getElementById('selected'),
+      lastMove: document.getElementById('lastMove'),
+      errorMsg: document.getElementById('errorMsg'),
+      diffNote: document.getElementById('diffNote'),
+      diffBtns: Array.prototype.slice.call(document.querySelectorAll('[data-diff]')),
+      resetBtn: document.getElementById('resetBtn'),
+      showResultBtn: document.getElementById('showResultBtn'),
+      overlay: document.getElementById('resultOverlay'),
+      resultTitle: document.getElementById('resultTitle'),
+      resultReason: document.getElementById('resultReason'),
+      resultDetail: document.getElementById('resultDetail'),
+      resultPly: document.getElementById('resultPly'),
+      resultResetBtn: document.getElementById('resultResetBtn'),
+      resultCloseBtn: document.getElementById('resultCloseBtn')
+    };
+
+    function coord(x, y) { return '(' + x + ',' + y + ')'; }
+    function describeMove(m) {
+      if (!m) return '—';
+      return (m.side === P ? 'あなた ' : 'CP ') + m.pieceId + ' ' + coord(m.fromX, m.fromY) + '→' + coord(m.toX, m.toY) + ' ' + MOVE_LABEL[m.type];
+    }
+    function pieceHtml(p) {
+      var glyph = p.side === P ? '▲' : '▼';
+      var badge = p.sideStepUsed ? '<span class="ch-badge used" aria-hidden="true">済</span>' : '<span class="ch-badge" aria-hidden="true">↔</span>';
+      return '<span class="ch-piece ' + (p.side === P ? 'p' : 'c') + '"><span aria-hidden="true">' + glyph + '</span>' + badge + '</span>';
+    }
+
+    var prevOverlayHidden = true;
+
+    function render(c) {
+      var s = c.state;
+      var canAct = c.canHumanAct();
+      var legal = getLegalMoves(s);
+      var selMoves = (c.selectedId && canAct) ? legal.filter(function (m) { return m.pieceId === c.selectedId; }) : [];
+      var dest = {};
+      selMoves.forEach(function (m) { dest[m.toX + ',' + m.toY] = m; });
+      var lm = s.lastMove;
+
+      boardEl.classList.toggle('locked', !canAct);
+      boardEl.setAttribute('aria-busy', c.cpThinking ? 'true' : 'false');
+
+      cells.forEach(function (b) {
+        var x = +b.dataset.x, y = +b.dataset.y;
+        var p = pieceAt(s, x, y);
+        var d = dest[x + ',' + y];
+        var cls = 'ch-cell';
+        if (y === 0) cls += ' row-cp';
+        if (y === SIZE - 1) cls += ' row-pl';
+        if (lm && ((lm.fromX === x && lm.fromY === y) || (lm.toX === x && lm.toY === y))) cls += ' last';
+        if (d) cls += d.type === 'capture' ? ' dest-cap' : ' dest';
+        if (p && p.id === c.selectedId) cls += ' sel';
+        b.className = cls;
+        b.innerHTML = '<span class="ch-coord" aria-hidden="true">' + x + ',' + y + '</span>' + (p ? pieceHtml(p) : '');
+        var label = coord(x, y) + ' ';
+        if (p) label += (p.side === P ? 'あなたの駒 ' : 'CPの駒 ') + p.id + '、サイドステップ' + (p.sideStepUsed ? '使用済' : '未使用');
+        else label += '空き';
+        if (d) label += '、移動先（' + MOVE_LABEL[d.type] + '）';
+        b.setAttribute('aria-label', label);
+      });
+
+      if (s.status === 'over') {
+        el.turn.textContent = '終局：' + SIDE_NAME[s.winner] + 'の勝ち（' + REASONS[s.reason] + '）';
+      } else if (s.turn === P) {
+        el.turn.textContent = 'あなたの手番（青 ▲）';
+      } else {
+        el.turn.textContent = 'CPの手番（赤 ▼）';
+      }
+      el.thinking.hidden = !c.cpThinking;
+      el.thinkingText.textContent = 'CP思考中…（' + DIFF_LABEL[c.difficulty] + '）';
+      el.ply.textContent = s.ply + ' ply';
+
+      if (c.selectedId && canAct) {
+        var sp = findPiece(s, c.selectedId);
+        el.selected.textContent = sp.id + ' ' + coord(sp.x, sp.y) + '／サイドステップ：' + (sp.sideStepUsed ? '使用済' : '未使用') + '／移動先：' + (selMoves.length ? selMoves.length + 'か所' : 'なし');
+      } else {
+        el.selected.textContent = canAct ? '未選択（青駒をタップ）' : '—';
+      }
+
+      var lmText = describeMove(lm);
+      if (lm && lm.side === C && c.lastCpInfo && c.lastCpInfo.fallback) lmText += '（時間上限のため2-ply評価で着手）';
+      el.lastMove.textContent = lmText;
+
+      el.errorMsg.hidden = !c.error;
+      el.errorMsg.textContent = c.error || '';
+
+      el.diffBtns.forEach(function (btn) {
+        btn.setAttribute('aria-pressed', btn.dataset.diff === c.difficulty ? 'true' : 'false');
+        btn.disabled = c.cpThinking;
+      });
+      el.diffNote.textContent = DIFF_NOTE[c.difficulty];
+
+      var showOverlay = s.status === 'over' && !c.resultDismissed;
+      el.overlay.hidden = !showOverlay;
+      el.showResultBtn.hidden = !(s.status === 'over' && c.resultDismissed);
+      if (s.status === 'over') {
+        el.resultTitle.textContent = s.winner === P ? 'あなたの勝ち！' : 'CPの勝ち';
+        el.resultReason.textContent = REASONS[s.reason];
+        var loser = opponent(s.winner);
+        var detail = '';
+        if (s.reason === 'REACH') detail = SIDE_NAME[s.winner] + 'の駒が相手の初期行に到達しました。';
+        else if (s.reason === 'ANNIHILATION') detail = SIDE_NAME[loser] + 'の駒がすべて取られました。';
+        else detail = SIDE_NAME[loser] + 'の手番開始時に合法手がありませんでした。';
+        el.resultDetail.textContent = detail;
+        el.resultPly.textContent = '総手数：' + s.ply + ' ply（難易度：' + DIFF_LABEL[c.difficulty] + '）';
+      }
+      if (showOverlay && prevOverlayHidden) el.resultResetBtn.focus();
+      prevOverlayHidden = !showOverlay;
+    }
+
+    controller = createController({
+      onChange: render,
+      schedule: function (fn, ms) { return setTimeout(fn, ms); },
+      cancel: function (id) { clearTimeout(id); }
+    });
+
+    el.diffBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () { controller.setDifficulty(btn.dataset.diff); });
+    });
+    el.resetBtn.addEventListener('click', function () { controller.reset(); });
+    el.resultResetBtn.addEventListener('click', function () { controller.reset(); });
+    el.resultCloseBtn.addEventListener('click', function () { controller.dismissResult(); });
+    el.showResultBtn.addEventListener('click', function () { controller.showResult(); });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && controller && controller.state.status === 'over' && !controller.resultDismissed) controller.dismissResult();
+    });
+
+    controller.reset();
+
+    setTimeout(function () {
+      var r = runSelfTests();
+      var st = document.getElementById('selfTestStatus');
+      st.textContent = '自己テスト：' + r.passed + '/' + r.total + ' 合格（開発者コンソールで ChromeHex.runSelfTests() を実行すると詳細を確認できます）';
+    }, 50);
+  }
+
+  window.ChromeHex = {
+    SIZE: SIZE, REASONS: REASONS,
+    createInitialState: createInitialState,
+    createStateFromSpec: createStateFromSpec,
+    cloneState: cloneState,
+    getLegalMoves: getLegalMoves,
+    isLegalMove: isLegalMove,
+    applyMove: applyMove,
+    evaluate: evaluate,
+    chooseCpMove: chooseCpMove,
+    createController: createController,
+    runSelfTests: runSelfTests,
+    getController: function () { return controller; }
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initUI);
+  else initUI();
+})();
+</script>
+</body>
+</html>
